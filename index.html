@@ -1,0 +1,919 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CIEDE2000 色差公式 · 大白话图解</title>
+<style>
+  :root{
+    --bg:#f6f4ef; --card:#ffffff; --ink:#23222b; --muted:#6f6d7a;
+    --line:#e4e0d6; --purple:#6d28d9; --purple-soft:#ede9fe;
+    --blue:#1d4ed8; --amber:#b45309; --good:#047857;
+    --patchbg:#7f7f7f;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    font-size:16.5px; line-height:1.85;
+  }
+  .wrap{max-width:1060px; margin:0 auto; padding:0 20px 80px}
+  header.hero{padding:56px 0 8px}
+  .kicker{display:inline-block; font-size:13.5px; letter-spacing:.18em; color:var(--purple); font-weight:700; border:1.5px solid var(--purple); border-radius:999px; padding:3px 14px; margin-bottom:18px}
+  h1{font-size:clamp(30px,4.6vw,44px); line-height:1.25; margin:0 0 14px; letter-spacing:.01em}
+  .lede{font-size:19px; color:#3d3c46; max-width:840px}
+  .lede b{color:var(--purple)}
+  .chips{margin:18px 0 6px; display:flex; flex-wrap:wrap; gap:8px}
+  .chip{font-size:13.5px; background:#fff; border:1px solid var(--line); border-radius:999px; padding:3px 12px; color:var(--muted)}
+  nav.toc{margin:26px 0 8px; padding:14px 18px; background:#fff; border:1px solid var(--line); border-radius:14px; font-size:14.5px; display:flex; flex-wrap:wrap; gap:6px 18px}
+  nav.toc a{color:var(--ink); text-decoration:none; border-bottom:1.5px solid var(--purple-soft)}
+  nav.toc a:hover{border-bottom-color:var(--purple); color:var(--purple)}
+  section{margin-top:64px}
+  .snum{display:inline-flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:10px; background:var(--purple); color:#fff; font-weight:800; font-size:17px; margin-right:12px; vertical-align:-6px}
+  h2{font-size:27px; margin:0 0 16px}
+  h3{font-size:19.5px; margin:28px 0 8px}
+  p{margin:10px 0}
+  .muted{color:var(--muted)}
+  .small{font-size:13.5px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px 22px; margin:18px 0}
+  .demo-title{display:flex; align-items:center; gap:10px; font-weight:800; font-size:15px; letter-spacing:.06em; color:var(--purple); margin-bottom:12px}
+  .demo-title .tag{background:var(--purple-soft); border-radius:6px; padding:1px 8px; font-size:12.5px; color:var(--purple)}
+  .formula{
+    font-family:"Times New Roman",Georgia,serif; font-size:20px;
+    background:#fbfaf7; border:1px solid var(--line); border-radius:12px;
+    padding:14px 18px; margin:12px 0; overflow-x:auto; white-space:nowrap;
+  }
+  .formula i{font-style:italic}
+  .frac{display:inline-flex; flex-direction:column; align-items:center; vertical-align:middle; margin:0 3px; line-height:1.25}
+  .frac .top{padding:0 5px; border-bottom:1.4px solid currentColor}
+  .frac .bot{padding:0 5px}
+  .sqrt{border-top:1.6px solid currentColor; padding:2px 4px 0 2px; margin-left:2px}
+  .sqrt>.rad{margin-left:-1px}
+  sup,sub{line-height:0}
+  .canvas-row{display:flex; gap:20px; flex-wrap:wrap; align-items:stretch}
+  .canvas-holder{position:relative; background:var(--patchbg); border-radius:12px; overflow:hidden; flex:0 0 auto; cursor:crosshair; touch-action:none}
+  .canvas-holder canvas{display:block}
+  .side-panel{flex:1 1 240px; min-width:230px; display:flex; flex-direction:column; gap:10px}
+  .readout{background:#fbfaf7; border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:14.5px}
+  .readout .v{font-variant-numeric:tabular-nums; font-weight:700; color:var(--purple)}
+  .swatchline{display:flex; align-items:center; gap:0; border-radius:10px; overflow:hidden; border:1px solid #333; background:var(--patchbg)}
+  .swatch{width:74px; height:74px}
+  .swatch-gap{width:3px; height:74px; background:#000}
+  .swatch-label{font-size:13px; color:var(--muted); margin-top:4px}
+  table.data{border-collapse:collapse; width:100%; font-size:14.5px; margin:10px 0}
+  table.data th, table.data td{border:1px solid var(--line); padding:7px 10px; text-align:left; vertical-align:top}
+  table.data th{background:#f3f1ea; font-weight:700}
+  table.data td.num{font-variant-numeric:tabular-nums; text-align:right}
+  .btnrow{display:flex; flex-wrap:wrap; gap:8px; margin:10px 0}
+  button.pill{
+    font-family:inherit; font-size:14px; padding:5px 14px; border-radius:999px;
+    border:1.5px solid var(--purple); background:#fff; color:var(--purple); cursor:pointer;
+  }
+  button.pill:hover{background:var(--purple-soft)}
+  button.pill.on{background:var(--purple); color:#fff}
+  input[type=range]{accent-color:var(--purple); width:100%}
+  .slider-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:8px 18px; margin:8px 0}
+  .slider-grid label{font-size:13.5px; color:var(--muted); display:block; margin-bottom:2px}
+  .slider-grid .sv{font-variant-numeric:tabular-nums; font-weight:700; color:var(--ink)}
+  .steps{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; margin-top:14px}
+  .step{background:#fbfaf7; border:1px solid var(--line); border-left:4px solid var(--purple); border-radius:10px; padding:12px 16px; font-size:14.5px}
+  .step .st-t{font-weight:800; color:var(--purple); margin-bottom:4px}
+  .step .num{font-variant-numeric:tabular-nums}
+  .step .why{color:var(--muted); font-size:13.5px; margin-top:6px}
+  .result-band{background:#1c1b26; color:#f3f1fa; border-radius:12px; padding:16px 20px; margin-top:14px}
+  .result-band .big{font-size:40px; font-weight:800; font-variant-numeric:tabular-nums; color:#fff}
+  .bars{display:flex; flex-direction:column; gap:6px; margin-top:10px}
+  .bar-row{display:grid; grid-template-columns:120px 1fr 70px; align-items:center; gap:10px; font-size:13.5px}
+  .bar-track{background:#37354a; border-radius:99px; height:14px; overflow:hidden}
+  .bar-fill{height:100%; border-radius:99px}
+  .scale-band{display:flex; border-radius:10px; overflow:hidden; font-size:13px; color:#fff; text-align:center; margin:8px 0}
+  .scale-band div{padding:8px 4px}
+  .note{background:var(--purple-soft); border-radius:10px; padding:10px 16px; font-size:14.5px; margin:12px 0}
+  .warn{background:#fef3c7; border-radius:10px; padding:10px 16px; font-size:14.5px; margin:12px 0}
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px}
+  .mini{background:#fbfaf7; border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-size:14.5px}
+  .mini b{color:var(--purple)}
+  footer{margin-top:70px; padding-top:20px; border-top:1px solid var(--line); font-size:13.5px; color:var(--muted)}
+  footer a{color:var(--blue)}
+  .hue-note{font-size:13.5px; color:var(--muted); margin-top:6px}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:13.5px; margin:8px 0}
+  .legend span{display:inline-flex; align-items:center; gap:6px}
+  .lg-line{display:inline-block; width:26px; height:0; border-top:3px solid var(--purple)}
+  .lg-dash{display:inline-block; width:26px; height:0; border-top:3px dashed #555}
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media (max-width:760px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="kicker">颜色科学 · 交互图解</span>
+  <h1>CIEDE2000 色差公式，大白话讲明白</h1>
+  <p class="lede">它回答一个问题：<b>“这两个颜色，人眼看起来差多少？”</b>答案是一个数，记作 ΔE<sub>00</sub>：
+  <b>1 分左右 = 刚好能看出差别</b>；2～3 分 = 并排细看能发现；5 分以上 = 一眼看出是两种颜色。
+  这把“尺子”被写进了印刷（ISO 12647）、牙科比色（ISO/TR 28642）和显示器校色报告的验收标准里。
+  下面用能拖、能玩的图，讲清楚它为什么<b>不是</b>简单的“两点之间直线距离”，以及公式每一项分别在修人眼的哪个“毛病”。</p>
+  <div class="chips">
+    <span class="chip">印刷批色验收</span><span class="chip">显示器校色报告</span><span class="chip">纺织印染</span><span class="chip">汽车漆 / 塑料</span><span class="chip">烤瓷牙比色</span>
+  </div>
+  <nav class="toc">
+    <a href="#s1">① 颜色变坐标</a><a href="#s2">② 直线距离不行</a><a href="#s3">③ 人眼的脚印是椭圆</a><a href="#s4">④ 公式逐项拆解</a><a href="#s5">⑤ 分数怎么读</a><a href="#s6">⑥ 边界与误区</a>
+  </nav>
+  <p class="small muted">本页所有色块、曲线和数字都由页面内置代码实时计算；其中的 CIEDE2000 实现已通过 Sharma（2005）论文全部 34 对官方测试数据的逐位校验。适合投影和印刷品演示的屏幕请勿开“夜间护眼模式”——它会改变颜色。</p>
+</header>
+
+<!-- ============================================================ §1 -->
+<section id="s1">
+  <h2><span class="snum">1</span>先把颜色变成坐标</h2>
+  <p>想象你是工厂的品控员：周二那批橙色瓶盖和周一是不是同一个色？“我觉得差不多”没法写进验收单，你需要<b>给颜色的差别打分</b>。打分的前提，是先把颜色变成数。</p>
+  <p>1976 年，国际照明委员会（CIE）推荐了 <b>CIELAB</b> 颜色空间，给每个颜色发一张三维坐标：</p>
+  <div class="grid2">
+    <div class="mini"><b>L* —— 亮暗</b>：0 是黑，100 是白。可乐和雪碧差的就是这个。</div>
+    <div class="mini"><b>a* —— 红绿方向</b>：正数偏红，负数偏绿，0 在中间。</div>
+    <div class="mini"><b>b* —— 黄蓝方向</b>：正数偏黄，负数偏蓝，0 在中间。</div>
+    <div class="mini"><b>另一对常用坐标</b>：彩度 C* = 离灰轴多远（a、b 的“长度”），色相角 h = 朝哪个方向偏（a、b 的“角度”）。这俩是后面公式的主角。</div>
+  </div>
+  <p>于是每个颜色都是空间里的一个点。下图就是 L*=65 那一层的“地图”：横轴 a*，纵轴 b*，中间是灰色，越靠外颜色越鲜艳。<b>拖动图里的点</b>（或调亮暗滑块），看看坐标怎么变。</p>
+
+  <div class="card" id="card_demoA">
+    <div class="demo-title">演示 A · 拖我：在 a*–b* 地图上认坐标 <span class="tag">可交互</span></div>
+    <div class="canvas-row">
+      <div class="canvas-holder" id="labMapHolder"><canvas id="labMap" width="560" height="480"></canvas></div>
+      <div class="side-panel">
+        <div style="display:flex; gap:14px; align-items:center">
+          <div class="swatchline"><div class="swatch" id="labSw1"></div><div class="swatch-gap"></div><div class="swatch" id="labSw2"></div></div>
+          <div class="small muted">左边是你选的颜色，右边是它的“镜像”色（a、b 取反），帮你看清方向轴。</div>
+        </div>
+        <div class="readout">L*（亮暗）= <span class="v" id="roL">65</span> &nbsp;|&nbsp; a* = <span class="v" id="roA">0.0</span> &nbsp;|&nbsp; b* = <span class="v" id="roB">0.0</span></div>
+        <div class="readout">彩度 C* = <span class="v" id="roC">0.0</span> &nbsp;|&nbsp; 色相角 h = <span class="v" id="roH">0°</span></div>
+        <label class="small muted">亮暗 L*：<span class="sv" id="labLval">65</span>
+          <input type="range" id="labL" min="5" max="98" step="1" value="65">
+        </label>
+        <div class="small muted">地图上有些区域颜色发灰、发闷——那是你的屏幕（sRGB）显示不出来的颜色，本页按“就近可显示色”压了回来。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ §2 -->
+<section id="s2">
+  <h2><span class="snum">2</span>最自然的打分：两点连直线——为什么不行</h2>
+  <p>有了坐标，最顺手的打分方式就是初中几何：两点之间连直线，算长度。</p>
+  <div class="formula">ΔE<sub>*ab</sub>（1976 版） = <span class="sqrt"><span class="rad">√(ΔL*)² + (Δa*)² + (Δb*)²</span></span> &nbsp;&nbsp;<span class="muted" style="font-family:system-ui; font-size:14px">——两点间的欧几里得距离</span></div>
+  <p>这个 1976 年的公式有个没写出来的承诺：<i>坐标差 1 分 = 人眼看差 1 份</i>。也就是假设 CIELAB 是一张“比例尺处处相同”的均匀地图。实际不是——实测“刚好能看出差别”平均要 ΔE<sub>*ab</sub>≈<b>2.3</b> 分（Sharma《Digital Color Imaging Handbook》2003），而且这个数在不同颜色区域还不一样。</p>
+  <p>看一个直观的反例。下面三对颜色，<b>直线距离统统是 10 分</b>，但人眼看起来完全不是一个量级的差别。每行右侧给出 CIEDE2000 的打分——它按“人眼在这块区域的松紧”重新校了刻度：</p>
+
+  <div class="card" id="card_demoB">
+    <div class="demo-title">演示 B · 同样“直线距离 10 分”，人眼感受天差地别 <span class="tag">数字实时计算</span></div>
+    <div id="deTenRows"></div>
+    <p class="small muted">灰区那对：ΔE<sub>00</sub> 比 10 还大——灰色附近人眼特别挑剔，老公式反而<b>低估</b>了你的眼力；鲜艳区那对：人眼宽容，ΔE<sub>00</sub> 明显小于 10。</p>
+  </div>
+
+  <div class="note">一句话：CIELAB 本身没有“错”，它只是<b>不均匀</b>——像一张比例尺随地区变化的地图。直接量直线，就量不出人眼的感觉。</div>
+</section>
+
+<!-- ============================================================ §3 -->
+<section id="s3">
+  <h2><span class="snum">3</span>人眼的“脚印”：等色差椭圆</h2>
+  <p>那人眼的真实刻度长什么样？科学家做了大量这样的实验：给观察者一个标准色，沿着某个方向慢慢调，调到“一半人刚好能看出不一样”，记下这个点；换个方向再来一遍；把这些点连起来，就得到一圈<b>“等色差轮廓”</b>——人眼在这块区域的“脚印”。</p>
+  <p>如果 CIELAB 真的均匀，所有脚印都应该是<b>一样大的圆</b>。实验画出来的却是（Luo 2002 综述）：</p>
+  <div class="grid2">
+    <div class="mini"><b>灰色附近：小小的圆</b>——人眼对灰色变脏极其敏感，脚印只有针尖大。</div>
+    <div class="mini"><b>越鲜艳：椭圆越大</b>——艳色里掺点杂质根本看不出来，脚印放大好几倍。</div>
+    <div class="mini"><b>蓝色区：椭圆是<b>斜的</b></b>——长轴歪向一边（背向灰色中心），其他色区大多没有这种歪斜。这就是折腾了行业几十年的“蓝区问题”。</div>
+    <div class="mini"><b>暗部和亮部：明度脚印更肥</b>——太黑太白的地方，人眼分不清华度的小差别。</div>
+  </div>
+  <p>下面的动画把这件事画出来了。<b>紫色的圈</b>是“和中心色的 ΔE<sub>00</sub> 恰好等于 8”的边界（用页面内置的 CIEDE2000 公式逐方向算出来的），<b>灰色虚线圆</b>是 1976 年老公式眼中的“差 8 分”。拖动中心点，或者点「自动巡游」，看看这把“会变形的尺子”在不同区域怎么伸缩、怎么歪：</p>
+
+  <div class="card" id="card_demoC">
+    <div class="demo-title">演示 C · 人眼的脚印 vs 老公式的圆 <span class="tag">核心动画</span></div>
+    <div class="canvas-row">
+      <div class="canvas-holder" id="ellMapHolder"><canvas id="ellMap" width="560" height="480"></canvas></div>
+      <div class="side-panel">
+        <div class="btnrow">
+          <button class="pill" id="orbitBtn">▶ 自动巡游</button>
+          <button class="pill" id="snapBlue">去蓝区</button>
+          <button class="pill" id="snapGray">去灰区</button>
+          <button class="pill" id="snapOrange">去橙区</button>
+        </div>
+        <div class="readout">中心色 C* = <span class="v" id="elC">–</span>，h = <span class="v" id="elH">–</span></div>
+        <div class="readout">此处灰区拉伸系数 G ≈ <span class="v" id="elG">–</span>（0=不拉伸，0.5=拉满 1.5 倍）</div>
+        <div class="readout">色相灵敏度 T ≈ <span class="v" id="elT">–</span>（越小越严），旋转项 RT ≈ <span class="v" id="elRT">–</span>（≠0 才说明进了蓝区）</div>
+        <div class="legend"><span><span class="lg-line"></span>ΔE<sub>00</sub>=8 的等差圈</span><span><span class="lg-dash"></span>ΔE*<sub>ab</sub>=8（老公式）</span></div>
+        <div class="small muted" id="elNote">拖动图中的中心点试试。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note"><b>CIEDE2000 的全部秘密就一句话：</b>它没有去重画一张“均匀地图”（历史上试过很多次都失败了），而是保留 CIELAB 地图，把“量距离的圆规”改造成<b>随位置自动变形的椭圆规</b>——在该严的地方收紧、该宽的地方放松、在蓝区还要斜着量。这个“变形规则”是从 3657 对人眼实测色样里拟合出来的（RIT-DuPont 156 对 + Witt 418 对 + 利兹大学 307 对 + BFD-P 2776 对，Luo 2002）。</div>
+</section>
+
+<!-- ============================================================ §4 -->
+<section id="s4">
+  <h2><span class="snum">4</span>公式逐项拆解：六个零件</h2>
+  <p>先看总公式（Sharma 2005 论文式 22）——别怕，它就是“三个方向各算一个差，各自除以本区域的松紧系数，平方相加”，最后加一个只在蓝区活着的交叉项：</p>
+  <div class="formula">ΔE<sub>00</sub> = <span class="sqrt"><span class="rad">√<span class="frac"><span class="top">ΔL′</span><span class="bot">k<sub>L</sub>S<sub>L</sub></span></span><sup>2</sup> + <span class="frac"><span class="top">ΔC′</span><span class="bot">k<sub>C</sub>S<sub>C</sub></span></span><sup>2</sup> + <span class="frac"><span class="top">ΔH′</span><span class="bot">k<sub>H</sub>S<sub>H</sub></span></span><sup>2</sup> + R<sub>T</sub>·<span class="frac"><span class="top">ΔC′</span><span class="bot">k<sub>C</sub>S<sub>C</sub></span></span>·<span class="frac"><span class="top">ΔH′</span><span class="bot">k<sub>H</sub>S<sub>H</sub></span></span></span></span></div>
+  <p>下面这个流水线演示，把两个颜色的完整计算过程一步步摊开。<b>拖滑块换颜色，或点预设对</b>，每张卡片里的数字会跟着变——建议先把预设「蓝区对」点一遍，看着 RT 从 0 变成 −1.7：</p>
+
+  <div class="card" id="card_pipe">
+    <div class="demo-title">演示 D · 公式流水线：每一步都看得见 <span class="tag">可交互</span></div>
+    <div class="btnrow" id="pipePresets"></div>
+    <div class="two-col">
+      <div>
+        <div style="display:flex; align-items:center; gap:12px"><div class="swatchline"><div class="swatch" id="pSw1"></div><div class="swatch-gap"></div><div class="swatch" id="pSw2"></div></div><div class="small muted">颜色 1（参考）与颜色 2（样品）</div></div>
+        <div class="slider-grid" id="pipeSliders"></div>
+      </div>
+      <div class="steps" id="pipeSteps" style="grid-template-columns:1fr"></div>
+    </div>
+    <div class="result-band" id="pipeResult"></div>
+  </div>
+
+  <h3>零件 5 和 6 长什么样：色相环的“松紧地形图”与蓝区旋转</h3>
+  <p>公式里最“玄”的两个函数画出来其实很直观。下图横轴是色相角（下面一条彩带对应各角度的颜色），<b>紫线是 T</b>：它乘在色相容差上，T 越小该色相方向越严——注意蓝紫一带那个深坑（官方测试数据里 T 最低 0.3636、最高 1.4453，同一格刻度松紧差近 3 倍）。<b>绿线是 RT</b>：只在 h̄′≈275° 的蓝色窗口里冒头，其他地方全是 0。</p>
+
+  <div class="card" id="card_curves">
+    <div class="demo-title">演示 E · T(h) 灵敏度地形图 与 RT(h) 蓝区旋转项 <span class="tag">悬停查看</span></div>
+    <svg id="curveSvg" viewBox="0 0 960 340" style="width:100%; height:auto; display:block"></svg>
+    <p class="hue-note">曲线按公式逐点计算：T 依赖平均色相 h̄′；RT = −sin(2Δθ)·RC，图中按平均彩度 C̄′=40 画（彩度更低时绿线更矮），另画一条 C̄′=10 的细线作对比。</p>
+  </div>
+
+  <div class="grid2">
+    <div class="mini"><b>为什么要“旋转”？</b>蓝区的实验脚印是斜椭圆：在那里，“色相偏一点”和“彩度淡一点”在人眼里会<b>互相叠加</b>，不再是两个互不相干的方向。平方和假定了两个方向“垂直”，于是在蓝区算错方向——交叉项 ΔC′·ΔH′ 就是那记“斜着量”的修正。官方测试数据里，6 对蓝色样本的 RT≈−1.7，其余样本 RT=0：一把只在蓝区出鞘的矫正刀。</div>
+    <div class="mini"><b>别忘了 G（零件 2）</b>：灰区拉伸。两色彩度都低时 G→0.5，a* 轴先被拉伸 1.5 倍再参与计算——因为灰色附近人眼对“偏红偏绿”比 Lab 坐标显示的更敏感。开关由 C̄⁷/(C̄⁷+25⁷) 控制，那个 25⁷≈61 亿的“魔法常数”就是在划“多淡算灰区”的界线。</div>
+  </div>
+</section>
+
+<!-- ============================================================ §5 -->
+<section id="s5">
+  <h2><span class="snum">5</span>分数怎么读：刻度与行话</h2>
+  <p>ΔE<sub>00</sub> 的设计目标是 <b>1.0 ≈ 恰可察觉差（JND）</b>——参考观察条件下“刚好看得出”的平均量级。常用的大白话台阶（经验参考值，随行业和观察条件浮动）：</p>
+  <div class="scale-band">
+    <div style="flex:1.2; background:#059669">&lt;0.8<br>基本无感</div>
+    <div style="flex:1.2; background:#65a30d">0.8–1.8<br>细看可察觉</div>
+    <div style="flex:1.2; background:#d97706">1.8–3.5<br>并排能看出</div>
+    <div style="flex:1; background:#dc2626">3.5–5<br>一眼可见</div>
+    <div style="flex:1.4; background:#7f1d1d">&gt;5<br>两种颜色</div>
+  </div>
+  <p>行业里真正写进标准的刻度更严：</p>
+  <table class="data">
+    <tr><th>场景</th><th>常用刻度</th><th>说明</th></tr>
+    <tr><td>牙科比色（贴面 / 烤瓷冠）</td><td class="num">PT ≈ 0.8，AT ≈ 1.8</td><td>50:50% 可觉察阈值 / 可接受阈值（Paravina 等多中心研究）——牙医的“及格线”比多数行业严得多</td></tr>
+    <tr><td>印刷（ISO 12647-2:2013）</td><td class="num">纸张允差 ±4 ΔE00</td><td>用 ΔE00 体系验收；“纸比墨还难管”是行业日常（insights4print）</td></tr>
+    <tr><td>显示器校色报告</td><td class="num">ΔE00 ≈ 2 上下</td><td>普通屏与专业屏的分水岭（Calman / DisplayCAL 验证报告惯例）</td></tr>
+    <tr><td>汽车漆、纺织</td><td class="num">CMC &lt; 0.5（汽车，参考条件）</td><td>纺织至今沿用 CMC(l:c) 公式并常用 2:1 权重——老公式并未被完全取代</td></tr>
+  </table>
+  <p>公式还留了三个<b>参数旋钮 k<sub>L</sub>、k<sub>C</sub>、k<sub>H</sub></b>（默认全为 1）：行业可以把“明度差不那么要紧”写成 k<sub>L</sub>=2（纺织界沿袭 CMC 2:1 的习惯），让同样的物理差别打出更宽松的分数。所以看到 ΔE00 数字时，先问一句“用的哪组 k”。</p>
+
+  <div class="card" id="card_demoF">
+    <div class="demo-title">演示 F · 色差打分器：四个公式同台 <span class="tag">可交互</span></div>
+    <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:center">
+      <label class="small">颜色 1 <input type="color" id="pick1" value="#3a7bd5" style="width:52px; height:36px; border:none; background:none; cursor:pointer"></label>
+      <label class="small">颜色 2 <input type="color" id="pick2" value="#3a7c3f" style="width:52px; height:36px; border:none; background:none; cursor:pointer"></label>
+      <div class="swatchline"><div class="swatch" id="fSw1"></div><div class="swatch-gap"></div><div class="swatch" id="fSw2"></div></div>
+    </div>
+    <table class="data" id="fTable" style="max-width:640px"></table>
+    <div class="readout" id="fVerdict" style="font-size:15px"></div>
+    <p class="small muted">CIE76 是裸直线距离；CIE94 / CMC 以颜色 1 为参考（<b>不对称</b>——交换两色分数会变）；CIEDE2000 写成了对称形式，交换不变。同一对颜色、四个分数，就是 25 年公式进化史的缩影。</p>
+    <div class="mini" style="margin-top:8px"><b>进化史成绩单</b>（合并人眼数据集上的误差 PF/3，越小越好，Luo 2002）：CIE76 = 56.3 → CMC(1984) = 37.9 → CIE94(1995) = 38.1 → <b>CIEDE2000 = 32.6</b>。相对 1976 年砍掉约 42% 的误差；相对 1995 年再进步约 14%——不是魔法，是把已知的几个系统性偏差逐一修掉。</div>
+  </div>
+</section>
+
+<!-- ============================================================ §6 -->
+<section id="s6">
+  <h2><span class="snum">6</span>边界与误区：别拿它干什么</h2>
+  <div class="grid2">
+    <div class="mini"><b>① 只为“小色差”而生。</b>它是用“差几步”的视觉数据拟合的，论文原文明确只适用于小色差。比较两幅画的色调差异这类“大色差”，它的读数没有意义。</div>
+    <div class="mini"><b>② 不是色貌模型。</b>它不含观察条件换算：换光源、换背景、换参考白，同一个颜色的 Lab 坐标就变，ΔE 跟着变。验收时标准里都规定死了测量条件。</div>
+    <div class="mini"><b>③ 不定义空间、不能当百分比。</b>CIE 自己的文件说它是“基于 CIELAB 的非欧氏公式，不定义色差空间”——你不能把 ΔE00 当坐标用，ΔE00=45 也不代表“差 45%”。</div>
+    <div class="mini"><b>④ 修了色差 ≠ 修好了 Lab。</b>色域映射里沿等 Lab 色相角压蓝色，蓝色照样变紫（“蓝转紫”问题）——CIEDE2000 只管“差多少”打分，不改 Lab 地图本身的几何。</div>
+    <div class="mini"><b>⑤ HDR / 超亮场景失灵。</b>ITU-R BT.2124 换用 ΔE ITP 的理由：CIEDE2000 在极低亮度不可靠、在高亮度从未验证过。HDR 流水线现在多用 ΔE ITP 或 JzAzBz / CAM16-UCS 这类新空间。</div>
+    <div class="mini"><b>⑥ 实现它有坑。</b>公式有 3 处数学不连续（两色色相正好差 180° 时最多跳 0.2734 分，日常可忽略），而且 Sharma（2005）发现当年互联网上<b>大多数实现的“平均色相”都算错了</b>。他们发布的 34 对官方测试数据至今是标准自检集——本页内置实现已逐位通过。</div>
+  </div>
+  <div class="note" style="margin-top:18px"><b>收个尾：</b>CIEDE2000 不是“更准的直线距离”，而是一套从 3657 份人眼答卷里学出来的<b>评分规则</b>——灰区收紧（G）、艳区放宽（S<sub>C</sub>）、黑白两端放松（S<sub>L</sub>）、色相环各有松紧（T）、蓝区斜着量（R<sub>T</sub>）。它依旧是经验拟合：人眼实验自身约 10% 的重复性误差，说明这把尺子离“完美”还有距离；但在印刷、屏幕、牙科这些小色差验收现场，它仍是 20 多年没有挑战者成功的<b>事实标准</b>。</div>
+</section>
+
+<footer>
+  <p><b>事实与出处</b>（本页所有结论均可在下列文献中核对）：</p>
+  <ul>
+    <li>G. Sharma, W. Wu, E. N. Dalal, <i>The CIEDE2000 Color-Difference Formula: Implementation Notes, Supplementary Test Data, and Mathematical Observations</i>, Color Research &amp; Application 30(1):21–30, 2005（doi:10.1002/col.20070）。公式逐条、34 对测试数据与 RT/T 数值均出自此文：<a href="https://www.hajim.rochester.edu/ece/~gsharma/ciede2000/">作者页面（含测试数据文件）</a></li>
+    <li>CIE 142:2001 <i>Improvement to industrial colour-difference evaluation</i>（CIEDE2000 的官方标准文本）：<a href="https://cie.co.at/publications/improvement-industrial-colour-difference-evaluation">cie.co.at</a></li>
+    <li>M. R. Luo, <i>Development of colour-difference formulae</i>, Review of Progress in Color 32 (2002)（40+ 公式史、3657 对数据集构成、PF/3 成绩单、蓝区椭圆证据）：<a href="https://sdc.org.uk/wp-content/uploads/2022/06/2002RP028.pdf">SDC 公开 PDF</a></li>
+    <li>牙科阈值 PT≈0.8 / AT≈1.8：Paravina 等多中心研究 <i>Color difference thresholds in dentistry</i>；ISO/TR 28642:2016 推荐牙科用 ΔE00</li>
+    <li>印刷：ISO 12647-2:2013 采用 ΔE00 体系、纸张允差 4 ΔE00（insights4print，Eddy Hagen）；HDR 替代方案：ITU-R BT.2124（ΔE ITP）</li>
+    <li>ΔE*ab≈2.3 为实测 JND：Sharma 主编《Digital Color Imaging Handbook》(2003)（转引）；“1.0≈JND”为公式的<b>设计目标与行业惯例</b>，非 CIE 原文定义</li>
+  </ul>
+  <p class="small">页面内的等色差圈、色带与全部数值由本页 JavaScript 实时计算，无任何预置图片；sRGB 色域外的颜色按“彩度收缩”就近显示。公式实现与官方 34 对测试数据的逐位校验脚本见同目录 <code>check/</code>。</p>
+</footer>
+</div>
+
+<script>
+'use strict';
+/* ================= 基础数学 ================= */
+const RAD = Math.PI / 180;
+
+/* CIEDE2000 —— 已通过 Sharma 2005 官方 34 对测试数据逐位校验（check/check.js） */
+function ciede2000(L1, a1, b1, L2, a2, b2, kL, kC, kH) {
+  kL = kL || 1; kC = kC || 1; kH = kH || 1;
+  const C1 = Math.hypot(a1, b1), C2 = Math.hypot(a2, b2);
+  const Cbar = (C1 + C2) / 2;
+  const Cbar7 = Math.pow(Cbar, 7);
+  const G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + 6103515625))); // 25^7
+  const a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+  const C1p = Math.hypot(a1p, b1), C2p = Math.hypot(a2p, b2);
+  const norm = (h) => { h = h % 360; return h < 0 ? h + 360 : h; };
+  const h1p = (a1p === 0 && b1 === 0) ? 0 : norm(Math.atan2(b1, a1p) / RAD);
+  const h2p = (a2p === 0 && b2 === 0) ? 0 : norm(Math.atan2(b2, a2p) / RAD);
+  const dLp = L2 - L1, dCp = C2p - C1p;
+  let dhp = 0;
+  if (C1p * C2p !== 0) {
+    dhp = h2p - h1p;
+    if (dhp > 180) dhp -= 360; else if (dhp < -180) dhp += 360;
+  }
+  const dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * RAD);
+  const Lbp = (L1 + L2) / 2, Cbp = (C1p + C2p) / 2;
+  let hbp;
+  if (C1p * C2p === 0) hbp = h1p + h2p;
+  else {
+    const diff = Math.abs(h1p - h2p), sum = h1p + h2p;
+    if (diff <= 180) hbp = sum / 2;
+    else if (sum < 360) hbp = (sum + 360) / 2;
+    else hbp = (sum - 360) / 2;
+  }
+  const T = 1 - 0.17 * Math.cos((hbp - 30) * RAD) + 0.24 * Math.cos(2 * hbp * RAD)
+    + 0.32 * Math.cos((3 * hbp + 6) * RAD) - 0.20 * Math.cos((4 * hbp - 63) * RAD);
+  const dtheta = 30 * Math.exp(-Math.pow((hbp - 275) / 25, 2));
+  const Cbp7 = Math.pow(Cbp, 7);
+  const RC = 2 * Math.sqrt(Cbp7 / (Cbp7 + 6103515625));
+  const SL = 1 + 0.015 * Math.pow(Lbp - 50, 2) / Math.sqrt(20 + Math.pow(Lbp - 50, 2));
+  const SC = 1 + 0.045 * Cbp;              // 论文式(19)：0.045
+  const SH = 1 + 0.015 * Cbp * T;
+  const RT = -Math.sin(2 * dtheta * RAD) * RC;
+  const tL = dLp / (kL * SL), tC = dCp / (kC * SC), tH = dHp / (kH * SH);
+  const dE = Math.sqrt(tL * tL + tC * tC + tH * tH + RT * tC * tH);
+  return { dE, C1, C2, Cbar, G, a1p, a2p, C1p, C2p, h1p, h2p, dLp, dCp, dhp, dHp,
+           Lbp, Cbp, hbp, T, dtheta, RC, SL, SC, SH, RT, tL, tC, tH };
+}
+
+function de76(L1, a1, b1, L2, a2, b2) {
+  return Math.hypot(L2 - L1, a2 - a1, b2 - b1);
+}
+function de94(L1, a1, b1, L2, a2, b2) { // 图形艺术 kL=kC=kH=1，以色 1 为参考
+  const C1 = Math.hypot(a1, b1);
+  const dL = L2 - L1, dC = Math.hypot(a2, b2) - C1;
+  const de = de76(L1, a1, b1, L2, a2, b2);
+  const dH2 = Math.max(0, de * de - dL * dL - dC * dC);
+  const SL = 1, SC = 1 + 0.045 * C1, SH = 1 + 0.015 * C1;
+  return Math.sqrt((dL / SL) ** 2 + (dC / SC) ** 2 + dH2 / (SH * SH));
+}
+function cmc(L1, a1, b1, L2, a2, b2, l, c) { // l:c，默认 1:1，以色 1 为参考
+  l = l || 1; c = c || 1;
+  const C1 = Math.hypot(a1, b1);
+  const SL = L1 < 16 ? 0.511 : 0.040975 * L1 / (1 + 0.01765 * L1);
+  const SC = 0.0638 * C1 / (1 + 0.0131 * C1) + 0.638;
+  let h = Math.atan2(b1, a1) / RAD; if (h < 0) h += 360;
+  const F = Math.sqrt(Math.pow(C1, 4) / (Math.pow(C1, 4) + 1900));
+  const T = (164 <= h && h <= 345) ? 0.56 + Math.abs(0.2 * Math.cos(h * RAD)) : 0.36 + Math.abs(0.4 * Math.cos(h * RAD));
+  const SH = SC * (F * T + 1 - F);
+  const dL = L2 - L1, dC = Math.hypot(a2, b2) - C1;
+  const de = de76(L1, a1, b1, L2, a2, b2);
+  const dH2 = Math.max(0, de * de - dL * dL - dC * dC);
+  return Math.sqrt((dL / (l * SL)) ** 2 + (dC / (c * SC)) ** 2 + dH2 / (SH * SH));
+}
+
+/* ---- sRGB <-> Lab（D65）---- */
+function srgbToLab(r, g, b) { // r,g,b in 0..255
+  const f = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
+  const R = f(r), G = f(g), B = f(b);
+  const X = 0.4124564 * R + 0.3575761 * G + 0.1804375 * B;
+  const Y = 0.2126729 * R + 0.7151522 * G + 0.0721750 * B;
+  const Z = 0.0193339 * R + 0.1191920 * G + 0.9503041 * B;
+  const xn = 0.95047, yn = 1.0, zn = 1.08883;
+  const g2 = (t) => t > 216 / 24389 ? Math.cbrt(t) : (24389 / 27 * t + 16) / 116;
+  const fx = g2(X / xn), fy = g2(Y / yn), fz = g2(Z / zn);
+  return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+}
+function labToSrgbArr(L, a, b) { // 返回 0..255 数组（不裁剪）
+  const fy = (L + 16) / 116, fx = fy + a / 500, fz = fy - b / 200;
+  const eps = 216 / 24389, kap = 24389 / 27;
+  const inv = (fv) => { const c = fv * fv * fv; return c > eps ? c : (116 * fv - 16) / kap; };
+  const xr = inv(fx), yr = L > kap * eps ? Math.pow(fy, 3) : L / kap, zr = inv(fz);
+  const X = xr * 0.95047, Y = yr, Z = zr * 1.08883;
+  let R = 3.2404542 * X - 1.5371385 * Y - 0.4985314 * Z;
+  let G = -0.9692660 * X + 1.8760108 * Y + 0.0415560 * Z;
+  let B = 0.0556434 * X - 0.2040259 * Y + 1.0572252 * Z;
+  const gam = (c) => c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055;
+  return [gam(R) * 255, gam(G) * 255, gam(B) * 255];
+}
+function inGamut(rgb) { return rgb.every((c) => c >= -0.5 && c <= 255.5); }
+function labToCss(L, a, b) { // 彩度收缩裁剪到 sRGB
+  let rgb = labToSrgbArr(L, a, b);
+  if (!inGamut(rgb)) {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 14; i++) {
+      const mid = (lo + hi) / 2;
+      const t = labToSrgbArr(L, a * mid, b * mid);
+      if (inGamut(t)) lo = mid; else hi = mid;
+    }
+    rgb = labToSrgbArr(L, a * lo, b * lo);
+  }
+  const q = (c) => Math.max(0, Math.min(255, Math.round(c)));
+  return `rgb(${q(rgb[0])},${q(rgb[1])},${q(rgb[2])})`;
+}
+
+/* ================= a*–b* 地图（演示 A / C 共用渲染） ================= */
+const AB = { min: -64, max: 64, W: 560, H: 480 };
+function abToPx(a, b) {
+  return [ (a - AB.min) / (AB.max - AB.min) * AB.W,
+           (AB.max - b) / (AB.max - AB.min) * AB.H ];
+}
+function pxToAb(x, y) {
+  return [ AB.min + x / AB.W * (AB.max - AB.min),
+           AB.max - y / AB.H * (AB.max - AB.min) ];
+}
+function pxPerUnit() { return AB.W / (AB.max - AB.min); }
+
+function renderMap(offCanvas, L) { // 半分辨率渲染 + 网格，返回 offCanvas
+  const w = AB.W / 2, h = AB.H / 2;
+  offCanvas.width = w; offCanvas.height = h;
+  const octx = offCanvas.getContext('2d');
+  const img = octx.createImageData(w, h);
+  const d = img.data;
+  for (let py = 0; py < h; py++) {
+    const b = AB.max - (py + 0.5) / h * (AB.max - AB.min);
+    for (let px = 0; px < w; px++) {
+      const a = AB.min + (px + 0.5) / w * (AB.max - AB.min);
+      const rgb = labToSrgbArr(L, a, b);
+      let R, G, B;
+      if (inGamut(rgb)) { R = rgb[0]; G = rgb[1]; B = rgb[2]; }
+      else {
+        let lo = 0, hi = 1;
+        for (let i = 0; i < 10; i++) {
+          const mid = (lo + hi) / 2;
+          if (inGamut(labToSrgbArr(L, a * mid, b * mid))) lo = mid; else hi = mid;
+        }
+        const t = labToSrgbArr(L, a * lo, b * lo);
+        R = t[0]; G = t[1]; B = t[2];
+      }
+      const o = (py * w + px) * 4;
+      d[o] = R; d[o + 1] = G; d[o + 2] = B; d[o + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  return offCanvas;
+}
+function drawGrid(ctx) {
+  const [x0] = abToPx(0, 0);
+  const [, y0] = abToPx(0, 0);
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, AB.H); ctx.moveTo(0, y0); ctx.lineTo(AB.W, y0); ctx.stroke();
+  ctx.font = '12px system-ui'; ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const labels = [['+a* 红', AB.max - 7, 0], ['−a* 绿', AB.min + 7, 0], ['+b* 黄', 0, AB.max - 7], ['−b* 蓝', 0, AB.min + 7]];
+  labels.forEach(([t, a, b]) => {
+    const [x, y] = abToPx(a, b);
+    ctx.lineWidth = 3; ctx.strokeText(t, x, y);
+    ctx.fillText(t, x, y);
+  });
+  ctx.restore();
+}
+function drawDot(ctx, a, b, color) {
+  const [x, y] = abToPx(a, b);
+  ctx.save();
+  ctx.beginPath(); ctx.arc(x, y, 11, 0, 7); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(x, y, 9, 0, 7); ctx.fillStyle = color; ctx.fill();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+  ctx.restore();
+}
+
+/* ================= 演示 A ================= */
+(function () {
+  const cvs = document.getElementById('labMap');
+  const ctx = cvs.getContext('2d');
+  const off = document.createElement('canvas');
+  const st = { L: 65, a: 8, b: -30 };
+  const QA = new URLSearchParams(location.search);
+  if (QA.get('pa') !== null) { st.a = +QA.get('pa'); st.b = +QA.get('pb'); }
+  const holder = document.getElementById('labMapHolder');
+  function redraw() {
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, 0, 0, AB.W, AB.H);
+    drawGrid(ctx);
+    drawDot(ctx, st.a, st.b, '#ffffff');
+    // 镜像点
+    const [x, y] = abToPx(-st.a, -st.b);
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.stroke();
+    // 读数
+    const C = Math.hypot(st.a, st.b);
+    let h = Math.atan2(st.b, st.a) / RAD; if (h < 0) h += 360;
+    document.getElementById('roL').textContent = st.L.toFixed(0);
+    document.getElementById('roA').textContent = st.a.toFixed(1);
+    document.getElementById('roB').textContent = st.b.toFixed(1);
+    document.getElementById('roC').textContent = C.toFixed(1);
+    document.getElementById('roH').textContent = h.toFixed(0) + '°';
+    const css = labToCss(st.L, st.a, st.b);
+    document.getElementById('labSw1').style.background = css;
+    document.getElementById('labSw2').style.background = labToCss(st.L, -st.a, -st.b);
+    document.getElementById('labLval').textContent = st.L.toFixed(0);
+  }
+  let pending = false;
+  function setL(v) { st.L = v; if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; renderMap(off, st.L); redraw(); }); } }
+  renderMap(off, st.L); redraw();
+  document.getElementById('labL').addEventListener('input', (e) => setL(+e.target.value));
+  function pointer(ev) {
+    const r = cvs.getBoundingClientRect();
+    const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const cy = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
+    const sc = AB.W / r.width;
+    const [a, b] = pxToAb(cx * sc, cy * sc);
+    st.a = Math.max(AB.min + 2, Math.min(AB.max - 2, a));
+    st.b = Math.max(AB.min + 2, Math.min(AB.max - 2, b));
+    redraw();
+  }
+  let drag = false;
+  holder.addEventListener('pointerdown', (e) => { drag = true; holder.setPointerCapture(e.pointerId); pointer(e); });
+  holder.addEventListener('pointermove', (e) => { if (drag) pointer(e); });
+  holder.addEventListener('pointerup', () => { drag = false; });
+})();
+
+/* ================= 演示 B：同距不同感 ================= */
+(function () {
+  const pairs = [
+    { name: '灰色区', c1: [65, 0, 0], c2: [65, 7.07, 7.07], note: '灰区：眼睛最挑剔' },
+    { name: '鲜艳橙区', c1: [60, 40, 55], c2: [60, 47.07, 62.07], note: '艳区：眼睛最宽容' },
+    { name: '蓝色区', c1: [50, -25, -50], c2: [50, -32.07, -42.93], note: '蓝区：椭圆还是斜的' },
+  ];
+  const host = document.getElementById('deTenRows');
+  let html = '<table class="data"><tr><th>区域</th><th>颜色对</th><th class="num">直线距离 ΔE*<sub>ab</sub></th><th class="num">CIEDE2000 ΔE<sub>00</sub></th><th></th></tr>';
+  pairs.forEach((p) => {
+    const d76 = de76(p.c1[0], p.c1[1], p.c1[2], p.c2[0], p.c2[1], p.c2[2]);
+    const d00 = ciede2000(p.c1[0], p.c1[1], p.c1[2], p.c2[0], p.c2[1], p.c2[2]).dE;
+    html += `<tr><td><b>${p.name}</b><div class="small muted">${p.note}</div></td>
+      <td><div class="swatchline" style="display:inline-flex; vertical-align:middle"><div class="swatch" style="width:44px;height:44px;background:${labToCss(...p.c1)}"></div><div class="swatch-gap" style="height:44px"></div><div class="swatch" style="width:44px;height:44px;background:${labToCss(...p.c2)}"></div></div></td>
+      <td class="num">${d76.toFixed(2)}</td>
+      <td class="num"><b style="color:var(--purple)">${d00.toFixed(2)}</b></td>
+      <td class="small muted">${d00 > 10.5 ? '老公式低估了眼力' : d00 < 9 ? '人眼比想象宽容' : ''}</td></tr>`;
+  });
+  html += '</table>';
+  host.innerHTML = html;
+})();
+
+/* ================= 演示 C：等色差椭圆 ================= */
+(function () {
+  const cvs = document.getElementById('ellMap');
+  const ctx = cvs.getContext('2d');
+  const off = document.createElement('canvas');
+  const holder = document.getElementById('ellMapHolder');
+  const st = { L: 60, a: 20, b: 30, orbit: true, t0: performance.now() };
+  const QC = new URLSearchParams(location.search);
+  if (QC.get('ca') !== null) { st.a = +QC.get('ca'); st.b = +QC.get('cb'); st.orbit = false; }
+  const TARGET = 8;
+  const snaps = { gray: [0, 0], orange: [40, 50], blue: [-16, -46] };
+
+  function contour(L, a0, b0, target) {
+    const N = 144, pts = [];
+    for (let k = 0; k < N; k++) {
+      const th = k / N * 2 * Math.PI;
+      const da = Math.cos(th), db = Math.sin(th);
+      let lo = 0.05, hi = 0.05;
+      let fHi = ciede2000(L, a0, b0, L, a0 + hi * da, b0 + hi * db).dE - target;
+      let guard = 0;
+      while (fHi < 0 && hi < 70 && guard++ < 12) { hi *= 1.7; fHi = ciede2000(L, a0, b0, L, a0 + hi * da, b0 + hi * db).dE - target; }
+      for (let i = 0; i < 20; i++) {
+        const mid = (lo + hi) / 2;
+        const fMid = ciede2000(L, a0, b0, L, a0 + mid * da, b0 + mid * db).dE - target;
+        if (fMid < 0) lo = mid; else hi = mid;
+      }
+      const r = (lo + hi) / 2;
+      pts.push(abToPx(a0 + r * da, b0 + r * db));
+    }
+    return pts;
+  }
+  function draw() {
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, 0, 0, AB.W, AB.H);
+    drawGrid(ctx);
+    // 1976 虚线圆
+    const r = TARGET * pxPerUnit();
+    const [cx, cy] = abToPx(st.a, st.b);
+    ctx.save();
+    ctx.setLineDash([7, 6]); ctx.lineWidth = 2.2; ctx.strokeStyle = 'rgba(20,20,20,0.85)';
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.stroke();
+    // CIEDE2000 等差圈
+    const pts = contour(st.L, st.a, st.b, TARGET);
+    ctx.setLineDash([]); ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(124,58,237,0.95)';
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+    ctx.closePath(); ctx.stroke();
+    ctx.restore();
+    drawDot(ctx, st.a, st.b, '#7c3aed');
+    // 读数
+    const C = Math.hypot(st.a, st.b);
+    let h = Math.atan2(st.b, st.a) / RAD; if (h < 0) h += 360;
+    const C7 = Math.pow(Math.max(C, 0.001), 7);
+    const G = 0.5 * (1 - Math.sqrt(C7 / (C7 + 6103515625)));
+    const T = 1 - 0.17 * Math.cos((h - 30) * RAD) + 0.24 * Math.cos(2 * h * RAD)
+      + 0.32 * Math.cos((3 * h + 6) * RAD) - 0.20 * Math.cos((4 * h - 63) * RAD);
+    const dtheta = 30 * Math.exp(-Math.pow((h - 275) / 25, 2));
+    const RC = 2 * Math.sqrt(C7 / (C7 + 6103515625));
+    const RT = -Math.sin(2 * dtheta * RAD) * RC;
+    document.getElementById('elC').textContent = C.toFixed(1);
+    document.getElementById('elH').textContent = h.toFixed(0) + '°';
+    document.getElementById('elG').textContent = G.toFixed(2);
+    document.getElementById('elT').textContent = T.toFixed(2);
+    document.getElementById('elRT').textContent = RT.toFixed(2);
+    const note = document.getElementById('elNote');
+    if (Math.abs(RT) > 0.2) note.textContent = '蓝区：紫圈被“掰歪”了，和虚线圆既不同心也不同形——这正是旋转项 RT 在干活。';
+    else if (C < 6) note.textContent = '灰区：紫圈收紧成小圈（G 拉伸 + 人眼挑剔），比虚线圆小得多。';
+    else if (C > 45) note.textContent = '艳区：紫圈比虚线圆大一圈——鲜艳区人眼宽容，同样 8 分罩住更大范围。';
+    else note.textContent = '中间调：紫圈是横向拉长的椭圆（SC 随彩度放松），已经和虚线圆分道扬镳。';
+  }
+  function setL(v) { st.L = v; renderMap(off, st.L); }
+  renderMap(off, st.L); draw();
+
+  const orbitBtn = document.getElementById('orbitBtn');
+  orbitBtn.classList.toggle('on', st.orbit);
+  orbitBtn.textContent = st.orbit ? '⏸ 暂停巡游' : '▶ 自动巡游';
+  window.__ellSet = (a, b) => { st.a = a; st.b = b; draw(); }; // 截图/导出用钩子
+  function loop(t) {
+    if (st.orbit) {
+      st.a = 46 * Math.sin(t / 5200);
+      st.b = 46 * Math.sin(t / 3700 + 1.2);
+      draw();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  orbitBtn.addEventListener('click', () => {
+    st.orbit = !st.orbit;
+    orbitBtn.textContent = st.orbit ? '⏸ 暂停巡游' : '▶ 自动巡游';
+    orbitBtn.classList.toggle('on', st.orbit);
+    if (!st.orbit) draw();
+  });
+  [['snapGray'], ['snapOrange'], ['snapBlue']].forEach(([id]) => {
+    document.getElementById(id).addEventListener('click', () => {
+      st.orbit = false; orbitBtn.textContent = '▶ 自动巡游'; orbitBtn.classList.remove('on');
+      const [a, b] = snaps[id.replace('snap', '').toLowerCase() === 'gray' ? 'gray' : id === 'snapOrange' ? 'orange' : 'blue'];
+      st.a = a; st.b = b; draw();
+    });
+  });
+  let drag = false;
+  function pointer(ev) {
+    const r = cvs.getBoundingClientRect();
+    const cx = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left;
+    const cy = (ev.touches ? ev.touches[0].clientY : ev.clientY) - r.top;
+    const sc = AB.W / r.width;
+    const [a, b] = pxToAb(cx * sc, cy * sc);
+    st.a = Math.max(AB.min + 4, Math.min(AB.max - 4, a));
+    st.b = Math.max(AB.min + 4, Math.min(AB.max - 4, b));
+    draw();
+  }
+  holder.addEventListener('pointerdown', (e) => { st.orbit = false; orbitBtn.textContent = '▶ 自动巡游'; orbitBtn.classList.remove('on'); drag = true; holder.setPointerCapture(e.pointerId); pointer(e); });
+  holder.addEventListener('pointermove', (e) => { if (drag) pointer(e); });
+  holder.addEventListener('pointerup', () => { drag = false; });
+})();
+
+/* ================= 演示 D：公式流水线 ================= */
+(function () {
+  const presets = {
+    gray:   { name: '灰区对（官方测试对 7）', c1: [50, 0, 0], c2: [50, -1, 2] },
+    orange: { name: '橙色对', c1: [60, 40, 55], c2: [62, 36, 60] },
+    blue:   { name: '蓝区对（RT 生效）', c1: [50, -15, -55], c2: [52, -12, -58] },
+    sharma: { name: '官方测试对 1（蓝）', c1: [50, 2.6772, -79.7751], c2: [50, 0, -82.7485] },
+    chroma: { name: '纯彩度对（官方对 22）', c1: [50, 2.5, 0], c2: [50, 3.2972, 0] },
+  };
+  const st = { c1: [...presets.blue.c1], c2: [...presets.blue.c2] };
+  const QD = new URLSearchParams(location.search);
+  if (QD.get('pipe') && presets[QD.get('pipe')]) { st.c1 = [...presets[QD.get('pipe')].c1]; st.c2 = [...presets[QD.get('pipe')].c2]; }
+  const host = document.getElementById('pipeSliders');
+  const defs = [
+    ['L1', '色1 L*'], ['a1', '色1 a*'], ['b1', '色1 b*'],
+    ['L2', '色2 L*'], ['a2', '色2 a*'], ['b2', '色2 b*'],
+  ];
+  host.innerHTML = defs.map(([k, label]) =>
+    `<div><label>${label} <span class="sv" id="pv_${k}"></span></label>
+     <input type="range" id="ps_${k}" min="${k[0] === 'L' ? 0 : -60}" max="${k[0] === 'L' ? 100 : 60}" step="0.5"></div>`).join('');
+  defs.forEach(([k]) => document.getElementById('ps_' + k).addEventListener('input', (e) => {
+    const which = k[1] === '1' ? 'c1' : 'c2';
+    const idx = { L: 0, a: 1, b: 2 }[k[0]];
+    st[which][idx] = +e.target.value;
+    update();
+  }));
+  const presetHost = document.getElementById('pipePresets');
+  presetHost.innerHTML = Object.entries(presets).map(([id, p]) => `<button class="pill" data-p="${id}">${p.name}</button>`).join('');
+  presetHost.addEventListener('click', (e) => {
+    const id = e.target.getAttribute('data-p'); if (!id) return;
+    st.c1 = [...presets[id].c1]; st.c2 = [...presets[id].c2];
+    update();
+  });
+  function step(t, body, why) {
+    return `<div class="step"><div class="st-t">${t}</div><div class="num">${body}</div>${why ? `<div class="why">${why}</div>` : ''}</div>`;
+  }
+  function update() {
+    ['L1', 'a1', 'b1', 'L2', 'a2', 'b2'].forEach((k) => {
+      const which = k[1] === '1' ? 'c1' : 'c2';
+      const idx = { L: 0, a: 1, b: 2 }[k[0]];
+      const el = document.getElementById('ps_' + k);
+      if (+el.value !== st[which][idx]) el.value = st[which][idx];
+      document.getElementById('pv_' + k).textContent = st[which][idx].toFixed(1);
+    });
+    document.getElementById('pSw1').style.background = labToCss(...st.c1);
+    document.getElementById('pSw2').style.background = labToCss(...st.c2);
+    const [L1, a1, b1] = st.c1, [L2, a2, b2] = st.c2;
+    const p = ciede2000(L1, a1, b1, L2, a2, b2);
+    const f2 = (x) => x.toFixed(2), f4 = (x) => x.toFixed(4);
+    const steps = [
+      step('① 原始坐标 → 圆柱坐标',
+        `C₁ = √(a₁²+b₁²) = <b>${f2(p.C1)}</b>，h₁ = ${f2(p.h1p)}°<br>C₂ = <b>${f2(p.C2)}</b>，h₂ = ${f2(p.h2p)}°`,
+        '把“红绿黄蓝坐标”换算成“离灰轴多远（彩度）+ 朝哪个方向（色相角）”。'),
+      step('② G：灰区把 a* 轴拉伸',
+        `平均彩度 C̄ = ${f2(p.Cbar)} → G = ${f4(p.G)}<br>a′₁ = (1+G)·a₁ = ${f2(p.a1p)}，a′₂ = ${f2(p.a2p)}`,
+        '灰色附近人眼对偏红偏绿特别敏感：彩度越低 G 越接近 0.5（a* 拉大 1.5 倍），鲜艳时 G→0。分界线由 25⁷≈61 亿这个常数控制。'),
+      step('③ 拉伸后重算 C′、h′',
+        `C′₁ = <b>${f2(p.C1p)}</b>，C′₂ = <b>${f2(p.C2p)}</b>`,
+        '后面所有“彩度、色相”都用拉伸后的坐标，保证灰区不出冤案。'),
+      step('④ 三个方向的差',
+        `ΔL′ = ${f2(p.dLp)}（明度差）<br>ΔC′ = ${f2(p.dCp)}（彩度差，带符号）<br>Δh′ = ${f2(p.dhp)}°，ΔH′ = 2√(C′₁C′₂)·sin(Δh′/2) = <b>${f2(p.dHp)}</b>（色相差）`,
+        '色相差不用角度差本身：同样转 10°，高彩度变得多、近灰几乎看不出——所以换算成“弦长”，灰色时自动归零（并进彩度差）。'),
+      step('⑤ 三个松紧系数（按两色的平均值现场配镜）',
+        `平均：L̄′=${f2(p.Lbp)}，C̄′=${f2(p.Cbp)}，h̄′=${f2(p.hbp)}°，T=${f4(p.T)}<br>S<sub>L</sub> = ${f4(p.SL)}（离 L=50 越远越宽）<br>S<sub>C</sub> = 1+0.045C̄′ = ${f4(p.SC)}（越艳越宽）<br>S<sub>H</sub> = 1+0.015C̄′·T = ${f4(p.SH)}（还看色相方位）`,
+        '这就是“椭圆规”的三根调节杆：黑白两端放松、艳区放松、色相环上按 T 图松紧各异。'),
+      step('⑥ 旋转项 RT（蓝区特供）',
+        `Δθ = 30·exp(−((h̄′−275)/25)²) = ${f2(p.dtheta)}<br>RC = ${f4(p.RC)} → <b>RT = ${f4(p.RT)}</b>`,
+        p.RT < -0.1
+          ? '蓝区窗口打开：色相差与彩度差在人眼里互相叠加，交叉项 ΔC′·ΔH′ 把“斜椭圆”补回来。'
+          : '不在蓝色窗口（h̄′≈275°±25°）或彩度太低时，RT≈0，这一项不存在。'),
+    ];
+    document.getElementById('pipeSteps').innerHTML = steps.join('');
+    const verdict = p.dE < 0.8 ? '基本看不出' : p.dE < 1.8 ? '并排细看可察觉' : p.dE < 3.5 ? '并排能看出' : p.dE < 5 ? '一眼可见' : '一眼两种颜色';
+    const mx = Math.max(Math.abs(p.tL), Math.abs(p.tC), Math.abs(p.tH), 0.001);
+    const bar = (label, v, color) =>
+      `<div class="bar-row"><span>${label}</span><div class="bar-track"><div class="bar-fill" style="width:${(Math.abs(v) / mx * 100).toFixed(1)}%; background:${color}"></div></div><span>${f2(Math.abs(v))}</span></div>`;
+    document.getElementById('pipeResult').innerHTML =
+      `<div style="display:flex; gap:22px; flex-wrap:wrap; align-items:center">
+        <div><div class="small" style="color:#b9b3d6">CIEDE2000 色差</div><div class="big">${p.dE.toFixed(3)}</div></div>
+        <div class="small" style="color:#d8d3ea">大白话：<b style="color:#fff">${verdict}</b><br>（1 分 ≈ 刚好能看出差别）</div>
+      </div>
+      <div class="bars">
+        ${bar('明度贡献 |ΔL′/S_L|', p.tL, '#a78bfa')}
+        ${bar('彩度贡献 |ΔC′/S_C|', p.tC, '#60a5fa')}
+        ${bar('色相贡献 |ΔH′/S_H|', p.tH, '#34d399')}
+      </div>
+      <div class="small" style="color:#8f88ad; margin-top:8px">总分为三方按各自松紧系数折算后的平方和，再加 RT·ΔC′·ΔH′ 交叉项（公式实现已通过 Sharma 2005 全部 34 对官方测试数据）。</div>`;
+  }
+  update();
+})();
+
+/* ================= 演示 E：T 与 RT 曲线（上下双面板） ================= */
+(function () {
+  const svg = document.getElementById('curveSvg');
+  svg.setAttribute('viewBox', '0 0 960 400');
+  const W = 960, ml = 46, mr = 16;
+  const plotW = W - ml - mr;
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (name, attrs, parent) => {
+    const n = document.createElementNS(NS, name);
+    for (const k in attrs) n.setAttribute(k, attrs[k]);
+    (parent || svg).appendChild(n); return n;
+  };
+  const T_TOP = 24, T_H = 158;          // T 面板：T ∈ [0.3, 1.7]
+  const R_TOP = 232, R_H = 108;         // RT 面板：RT ∈ [-1.8, 0.2]
+  const STRIP_Y = 360, STRIP_H = 16;
+  const xOf = (h) => ml + h / 360 * plotW;
+  const yOfT = (T) => T_TOP + T_H - (T - 0.3) / 1.4 * T_H;
+  const yOfR = (RT) => R_TOP + R_H - (RT + 1.8) / 2.0 * R_H;
+  const tAt = (h) => 1 - 0.17 * Math.cos((h - 30) * RAD) + 0.24 * Math.cos(2 * h * RAD)
+    + 0.32 * Math.cos((3 * h + 6) * RAD) - 0.20 * Math.cos((4 * h - 63) * RAD);
+  const rtAt = (h, Cbp) => {
+    const dtheta = 30 * Math.exp(-Math.pow((h - 275) / 25, 2));
+    const C7 = Math.pow(Cbp, 7);
+    const RC = 2 * Math.sqrt(C7 / (C7 + 6103515625));
+    return -Math.sin(2 * dtheta * RAD) * RC;
+  };
+  // 色相带（L*=65, C*=40，按角度取色）
+  for (let x = 0; x < plotW; x += 2) {
+    const h = x / plotW * 360;
+    el('rect', { x: ml + x, y: STRIP_Y, width: 2.2, height: STRIP_H, fill: labToCss(65, 40 * Math.cos(h * RAD), 40 * Math.sin(h * RAD)) });
+  }
+  // T 面板网格
+  [0.4, 0.8, 1.2, 1.6].forEach((v) => {
+    el('line', { x1: ml, y1: yOfT(v), x2: W - mr, y2: yOfT(v), stroke: '#eee', 'stroke-width': 1 });
+    el('text', { x: ml - 6, y: yOfT(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#888' }).textContent = v.toFixed(1);
+  });
+  el('text', { x: 8, y: T_TOP + 14, 'font-size': 13, fill: '#6d28d9', 'font-weight': 800 }).textContent = 'T';
+  // RT 面板网格
+  [-1.5, -1.0, -0.5].forEach((v) => {
+    el('line', { x1: ml, y1: yOfR(v), x2: W - mr, y2: yOfR(v), stroke: '#eee', 'stroke-width': 1 });
+    el('text', { x: ml - 6, y: yOfR(v) + 4, 'text-anchor': 'end', 'font-size': 11, fill: '#888' }).textContent = v.toFixed(1);
+  });
+  el('line', { x1: ml, y1: yOfR(0), x2: W - mr, y2: yOfR(0), stroke: '#ccc', 'stroke-width': 1, 'stroke-dasharray': '3 4' });
+  el('text', { x: W - mr - 4, y: yOfR(0) - 5, 'text-anchor': 'end', 'font-size': 11, fill: '#999' }).textContent = 'RT = 0（公式不旋转）';
+  el('text', { x: 2, y: R_TOP + 14, 'font-size': 13, fill: '#047857', 'font-weight': 800 }).textContent = 'RT';
+  // 色相刻度
+  [0, 90, 180, 270, 360].forEach((h) => {
+    el('line', { x1: xOf(h), y1: STRIP_Y + STRIP_H, x2: xOf(h), y2: STRIP_Y + STRIP_H + 5, stroke: '#999', 'stroke-width': 1 });
+    el('text', { x: xOf(h), y: STRIP_Y + STRIP_H + 20, 'text-anchor': 'middle', 'font-size': 12, fill: '#666' }).textContent = h + '°';
+  });
+  // 曲线
+  let pathT = '', pathR = '', pathR2 = '';
+  for (let h = 0; h <= 360; h += 1.5) {
+    pathT += (h ? 'L' : 'M') + xOf(h).toFixed(1) + ' ' + yOfT(tAt(h)).toFixed(1);
+    pathR += (h ? 'L' : 'M') + xOf(h).toFixed(1) + ' ' + yOfR(rtAt(h, 40)).toFixed(1);
+    pathR2 += (h ? 'L' : 'M') + xOf(h).toFixed(1) + ' ' + yOfR(rtAt(h, 10)).toFixed(1);
+  }
+  el('path', { d: pathT, fill: 'none', stroke: '#6d28d9', 'stroke-width': 3 });
+  el('path', { d: pathR, fill: 'none', stroke: '#047857', 'stroke-width': 3 });
+  el('path', { d: pathR2, fill: 'none', stroke: '#047857', 'stroke-width': 1.4, 'stroke-dasharray': '5 4', opacity: 0.7 });
+  el('text', { x: xOf(232), y: yOfT(1.62), 'text-anchor': 'middle', 'font-size': 13.5, fill: '#6d28d9', 'font-weight': 700 }).textContent = 'T：越小越严（蓝紫有深坑）';
+  el('text', { x: xOf(275), y: yOfR(-1.62), 'text-anchor': 'middle', 'font-size': 13.5, fill: '#047857', 'font-weight': 700 }).textContent = 'RT 只在蓝区窗口（275°±25°）内非零';
+  // 悬停
+  const cross = el('line', { x1: 0, y1: T_TOP, x2: 0, y2: R_TOP + R_H, stroke: '#bbb', 'stroke-width': 1, visibility: 'hidden' });
+  const dotT = el('circle', { r: 5, fill: '#6d28d9', visibility: 'hidden' });
+  const dotR = el('circle', { r: 5, fill: '#047857', visibility: 'hidden' });
+  const tip = el('text', { 'font-size': 13, fill: '#333', 'font-weight': 700, visibility: 'hidden' });
+  svg.addEventListener('pointermove', (e) => {
+    const r = svg.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width * W;
+    if (x < ml || x > W - mr) return;
+    const h = (x - ml) / plotW * 360;
+    const T = tAt(h), RT = rtAt(h, 40);
+    cross.setAttribute('x1', x); cross.setAttribute('x2', x); cross.setAttribute('visibility', 'visible');
+    dotT.setAttribute('cx', x); dotT.setAttribute('cy', yOfT(T)); dotT.setAttribute('visibility', 'visible');
+    dotR.setAttribute('cx', x); dotR.setAttribute('cy', yOfR(RT)); dotR.setAttribute('visibility', 'visible');
+    tip.setAttribute('x', Math.min(x + 8, W - mr - 170)); tip.setAttribute('y', T_TOP + 16);
+    tip.setAttribute('visibility', 'visible');
+    tip.textContent = `h=${h.toFixed(0)}°  T=${T.toFixed(2)}  RT=${RT.toFixed(2)}`;
+  });
+  svg.addEventListener('pointerleave', () => {
+    [cross, dotT, dotR, tip].forEach((n) => n.setAttribute('visibility', 'hidden'));
+  });
+})();
+
+/* ================= 演示 F：打分器 ================= */
+(function () {
+  const p1 = document.getElementById('pick1'), p2 = document.getElementById('pick2');
+  function update() {
+    const [r1, g1, b1] = p1.value.match(/\w\w/g).map((s) => parseInt(s, 16));
+    const [r2, g2, b2] = p2.value.match(/\w\w/g).map((s) => parseInt(s, 16));
+    const L1 = srgbToLab(r1, g1, b1), L2 = srgbToLab(r2, g2, b2);
+    document.getElementById('fSw1').style.background = p1.value;
+    document.getElementById('fSw2').style.background = p2.value;
+    const rows = [
+      ['ΔE*ab（CIE76，1976）', de76(...L1, ...L2), '裸直线距离'],
+      ['ΔE94（CIE94，1995）', de94(...L1, ...L2), '按彩度缩放的椭圆'],
+      ['CMC(1:1)（1984）', cmc(...L1, ...L2), '纺织业现役标准'],
+      ['ΔE00（CIEDE2000，2001）', ciede2000(...L1, ...L2).dE, '现行小色差事实标准'],
+    ];
+    let html = '<tr><th>公式</th><th class="num">分数</th><th>一句话</th></tr>';
+    rows.forEach(([n, v, note]) => {
+      html += `<tr><td>${n}</td><td class="num"${n.includes('2000') ? ' style="font-weight:800; color:var(--purple)"' : ''}>${v.toFixed(3)}</td><td class="small muted">${note}</td></tr>`;
+    });
+    document.getElementById('fTable').innerHTML = html;
+    const d = ciede2000(...L1, ...L2).dE;
+    const verdict = d < 0.8 ? ['几乎看不出差别', '#059669'] : d < 1.8 ? ['并排细看才可能察觉', '#65a30d'] : d < 3.5 ? ['并排能看出差别', '#d97706'] : d < 5 ? ['一眼可见的差别', '#dc2626'] : ['一眼两种颜色', '#7f1d1d'];
+    document.getElementById('fVerdict').innerHTML =
+      `CIEDE2000 判读：<b style="color:${verdict[1]}">${verdict[0]}</b>（ΔE<sub>00</sub>=${d.toFixed(2)}）`;
+  }
+  p1.addEventListener('input', update); p2.addEventListener('input', update);
+  update();
+})();
+
+/* ================= 截图模式（?cap=cardId）——导出公众号静态图用 ================= */
+(function () {
+  const q = new URLSearchParams(location.search);
+  const cap = q.get('cap');
+  if (!cap) return;
+  const card = document.getElementById('card_' + cap);
+  if (!card) return;
+  let n = card;
+  while (n && n !== document.body) {
+    Array.from(n.parentElement.children).forEach((c) => { if (c !== n) c.style.display = 'none'; });
+    n.style.margin = '0';
+    n = n.parentElement;
+  }
+  const w = document.querySelector('.wrap');
+  if (w) { w.style.padding = '0'; w.style.maxWidth = 'none'; w.style.margin = '0'; }
+  document.body.style.background = '#fff';
+  document.body.style.margin = '0';
+  card.style.margin = '0';
+  card.querySelectorAll('.btnrow').forEach((b) => { b.style.display = 'none'; });
+  if (q.get('bare')) { // 裸导出：只留画布本体（封面/GIF/三站图用）
+    card.querySelectorAll('.demo-title,.side-panel,.legend,.hue-note').forEach((b) => { b.style.display = 'none'; });
+    card.style.border = 'none';
+    card.style.padding = '0';
+  }
+  if (q.get('debug')) {
+    const r = (el) => { const b = el.getBoundingClientRect(); return [b.x, b.y, b.width, b.height].map((v) => Math.round(v)); };
+    document.title = 'DBG ' + JSON.stringify({
+      card: r(card), canvas: r(document.getElementById('ellMap') || document.getElementById('labMap')),
+      body: r(document.body),
+    });
+  }
+})();
+</script>
+</body>
+</html>
